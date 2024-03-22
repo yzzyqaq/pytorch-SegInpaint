@@ -12,7 +12,7 @@ class CityscapesDataset(Pix2pixDataset):
         parser.set_defaults(crop_size=256)
         parser.set_defaults(display_winsize=256)
         parser.set_defaults(label_nc=35)
-        parser.set_defaults(aspect_ratio=1.0)
+        parser.set_defaults(aspect_ratio=1)
         opt, _ = parser.parse_known_args()
         if hasattr(opt, 'num_upsampling_layers'):
             parser.set_defaults(num_upsampling_layers='more')
@@ -22,12 +22,20 @@ class CityscapesDataset(Pix2pixDataset):
         root = opt.dataroot
         phase = 'val' if opt.phase == 'test' else 'train'
 
-        label_dir = os.path.join(root, 'gtFine', phase)
+        label_dir = os.path.join(root, 'gtFine_f', phase)
         label_paths_all = make_dataset(label_dir, recursive=True)
         label_paths = [p for p in label_paths_all if p.endswith('_labelIds.png')]
 
-        image_dir = os.path.join(root, 'leftImg8bit', phase)
+        color_dir = os.path.join(root, 'color_f', phase)
+        color_paths_all = make_dataset(color_dir, recursive=True)
+        color_paths = [p for p in color_paths_all if p.endswith('_color_gray.png')]
+
+        image_dir = os.path.join(root, 'leftImg8bit2_f', phase)
         image_paths = make_dataset(image_dir, recursive=True)
+
+        realseg_dir = os.path.join(root, 'seg_pre', phase)
+        realseg_paths_all = make_dataset(image_dir, recursive=True)
+        realseg_paths = [p for p in color_paths_all if p.endswith('_color.png')]
 
         if not opt.no_instance:
             instance_paths = [p for p in label_paths_all if p.endswith('_instanceIds.png')]
@@ -36,9 +44,10 @@ class CityscapesDataset(Pix2pixDataset):
 
         # load mask
         mask_dir = os.path.join(root, 'irregular_mask')
-        mask_paths = make_dataset(mask_dir, recursive=True)
+        mask_paths_all = make_dataset(mask_dir, recursive=True)
+        mask_paths = [p for p in mask_paths_all if p.endswith('_mask.png')]
 
-        return label_paths, image_paths, instance_paths, mask_paths
+        return label_paths, image_paths, instance_paths, mask_paths, color_paths , realseg_paths
 
     def paths_match(self, path1, path2):
         name1 = os.path.basename(path1)

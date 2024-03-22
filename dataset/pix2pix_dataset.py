@@ -25,17 +25,21 @@ class Pix2pixDataset(BaseDataset):
         self.opt = opt
         self.mask = opt.mask
 
-        label_paths, image_paths, instance_paths, mask_paths = self.get_paths(opt)
-
+        label_paths, image_paths, instance_paths, mask_paths, color_paths, realseg_paths = self.get_paths(opt)
+        
         util.natural_sort(label_paths)
+        util.natural_sort(color_paths)
         util.natural_sort(image_paths)
         util.natural_sort(mask_paths) # MASK
+        util.natural_sort(realseg_paths)
         if not opt.no_instance:
             util.natural_sort(instance_paths)
 
         label_paths = label_paths[:opt.max_dataset_size]
+        color_paths = color_paths[:opt.max_dataset_size]
         image_paths = image_paths[:opt.max_dataset_size]
         instance_paths = instance_paths[:opt.max_dataset_size]
+        realseg_paths = realseg_paths[:opt.max_dataset_size]
         #mask_paths = mask_paths[:] will get random mask from there.
 
 
@@ -44,20 +48,31 @@ class Pix2pixDataset(BaseDataset):
                 assert self.paths_match(path1, path2), \
                     "The label-image pair (%s, %s) do not look like the right pair because the filenames are quite different. Are you sure about the pairing? Please see data/pix2pix_dataset.py to see what is going on, and use --no_pairing_check to bypass this." % (path1, path2)
 
+        if not opt.no_pairing_check:
+            for path1, path2 in zip(color_paths, image_paths):
+                assert self.paths_match(path1, path2), \
+                    "The label-image pair (%s, %s) do not look like the right pair because the filenames are quite different. Are you sure about the pairing? Please see data/pix2pix_dataset.py to see what is going on, and use --no_pairing_check to bypass this." % (path1, path2)
+
+
+        self.color_paths = color_paths
         self.label_paths = label_paths
         self.image_paths = image_paths
         self.instance_paths = instance_paths
         self.mask_paths = mask_paths # MASK
+        self.realseg_paths = realseg_paths
 
         size = len(self.label_paths)
         self.dataset_size = size
 
     def get_paths(self, opt):
         label_paths = []
+        color_paths = []
         image_paths = []
         instance_paths = []
+        mask_paths=[]
+        realseg_paths=[]
         assert False, "A subclass of Pix2pixDataset must override self.get_paths(self, opt)"
-        return label_paths, image_paths, instance_paths
+        return label_paths, image_paths, instance_paths, mask_paths, color_paths, real_seg_paths
 
     def paths_match(self, path1, path2):
         filename1_without_ext = os.path.splitext(os.path.basename(path1))[0]
@@ -71,7 +86,20 @@ class Pix2pixDataset(BaseDataset):
         params = get_params(self.opt, label.size)
         transform_label = get_transform(self.opt, params, method=Image.NEAREST, normalize=False)
         label_tensor = transform_label(label) * 255.0
+        
         label_tensor[label_tensor == 255] = self.opt.label_nc  # 'unknown' is opt.label_nc
+        
+
+
+        color_path = self.color_paths[index]
+        color = Image.open(color_path)
+        params = get_params(self.opt, color.size)
+        transform_color = get_transform(self.opt, params, method=Image.NEAREST, normalize=False)
+        color_tensor = transform_color(color) * 255.0
+        
+        color_tensor[color_tensor == 255] = self.opt.label_nc  # 'unknown' is opt.label_nc
+       
+
 
         # input image (real images)
         image_path = self.image_paths[index]
@@ -83,6 +111,16 @@ class Pix2pixDataset(BaseDataset):
 
         transform_image = get_transform(self.opt, params, normalize=False)
         image_tensor = transform_image(image)
+        #print(image_tensor.shape)
+
+        '''# input image (real images)
+        realseg_path = self.realseg_paths[index]
+        realseg = Image.open(realseg_path)
+        realseg= realseg.convert('RGB')
+
+        transform_realseg = get_transform(self.opt, params, normalize=False)
+        realseg_tensor = transform_realseg(realseg)
+        #print(image_tensor.shape)'''
 
         # reference: https://github.com/knazeri/edge-connect/blob/master/src/dataset.py#L116-L151
         mask, mask_ix = self.load_mask(image_tensor, index)
@@ -99,12 +137,13 @@ class Pix2pixDataset(BaseDataset):
                 instance_tensor = instance_tensor.long()
             else:
                 instance_tensor = transform_label(instance)
-
         input_dict = {'label': label_tensor,
                       'instance': instance_tensor,
                       'image': image_tensor,
                       'mask': mask_tensor,
                       'path': image_path,
+                      'color':color_tensor,
+                      #'realseg':realseg_tensor
                       }
 
         # Give subclasses a chance to modify the final output

@@ -11,7 +11,10 @@ class BaseDataset(data.Dataset):
 
     @staticmethod
     def modify_commandline_options(parser, is_train):
-        return parser
+        return parser#使用 @staticmethod 装饰器修饰。
+    #静态方法与类实例无关，可以通过类名调用。这个方法接受两个参数：parser 和 is_train。
+    #m3是类里面的一个静态方法，跟普通函数没什么区别，与类和实例都没有所谓的绑定关系
+    #它只不过是碰巧存在类中的一个函数而已。不论是通过类还是实例都可以引用该方法。
 
     def initialize(self, opt):
         pass

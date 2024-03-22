@@ -42,6 +42,28 @@ class SegInpaintTrainer():
 
         # then udpate SGNet
         self.optimizer_SGNet.zero_grad()
+        sgn_losses, generated_img, occ_mask, firstout = self.seg_inpaint_model(data, mode='sgn', fake_seg=generated_seg)
+        d_img_losses, real_img, corruped_img = self.seg_inpaint_model(data, mode='d_img', fake_seg=self.generated_seg)
+        sgn_loss = sum(sgn_losses.values()).mean()
+        sgn_loss.backward()
+        self.optimizer_SGNet.step()
+        result_img = generated_img * (1 - occ_mask) + real_img * occ_mask
+        first_result_img = firstout * (1 - occ_mask) + real_img * occ_mask
+        self.result_img = result_img  
+        self.first_out = firstout
+        self.first_out_result = first_result_img
+
+        self.sgn_losses = sgn_losses
+        self.generated_img = generated_img
+
+    def run_generator_test(self, data):
+        # first update SPNet
+        spn_losses, generated_seg = self.seg_inpaint_model(data, mode='spn')
+        self.spn_losses = spn_losses
+        self.generated_seg = generated_seg
+
+        # then udpate SGNet
+        self.optimizer_SGNet.zero_grad()
         sgn_losses, generated_img = self.seg_inpaint_model(data, mode='sgn', fake_seg=generated_seg)
         sgn_loss = sum(sgn_losses.values()).mean()
         sgn_loss.backward()
@@ -49,13 +71,16 @@ class SegInpaintTrainer():
 
         self.sgn_losses = sgn_losses
         self.generated_img = generated_img
+        
+    
 
     def run_discriminator_one_step(self, data):
         # first D_seg
         self.optimizer_D_seg.zero_grad()
         d_seg_losses = self.seg_inpaint_model(data, mode='d_seg')
-        d_seg_loss = sum(d_seg_losses.values()).mean()
-        d_seg_loss.backward()
+        #d_seg_loss = sum(d_seg_losses.values()).mean()
+        #d_seg_loss.backward()
+        d_seg_loss = 0
         self.optimizer_D_seg.step()
         self.d_seg_losses = d_seg_losses
         
@@ -72,6 +97,9 @@ class SegInpaintTrainer():
         self.corruped_img = corruped_img
 
     def get_latest_results(self):
+        return self.real_img, self.corruped_img, self.generated_seg, self.generated_img, self.result_img, self.first_out, self.first_out_result
+    
+    def get_results(self):
         return self.real_img, self.corruped_img, self.generated_seg, self.generated_img
 
     def get_loss_str(self):
@@ -89,6 +117,10 @@ class SegInpaintTrainer():
 
     def save(self, path, epoch):
         self.seg_inpaint_model_on_one_gpu.save(path, epoch)
+
+    def load(self,path):
+        epoch, SPNet, SGNet=self.seg_inpaint_model_on_one_gpu.load(path)
+        return  epoch, SPNet, SGNet
 
     ##################################################################
     # Helper functions

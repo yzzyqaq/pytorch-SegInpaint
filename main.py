@@ -7,10 +7,14 @@ import sys
 from collections import OrderedDict
 from datetime import datetime
 from tqdm import tqdm
-
+import numpy as np
+import cv2
+import torch
+import torch.nn.functional as F
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
+import matplotlib.pyplot as plt
 
 import dataset
 import util.util as util
@@ -22,6 +26,16 @@ current_time = datetime.now().strftime("%m%d-%H%M")
 
 def get_opt():
     parser = argparse.ArgumentParser()
+    image_size = 256
+    parser.add_argument('--img_size', default=image_size,type=int, help='size of image')
+    parser.add_argument('--crop_size', default=image_size, type=int, help='size of image')
+    parser.add_argument('--img_shape',default=(image_size,image_size,3),type=int,help='size of image')
+    parser.add_argument('--height',default=128,type=int,help='height of random bbox')
+    parser.add_argument('--width',default=128,type=int,help='width of random bbox')
+    parser.add_argument('--max_delta_height',default=32,type=int,help='')
+    parser.add_argument('--max_delta_width',default=32,type=int,help='')
+    parser.add_argument('--vertical_margin',default=0,type=int,help='')
+    parser.add_argument('--horizontal_margin',default=0,type=int,help='')
     ### base options ###
     parser.add_argument('--name', type=str, default='exp1-%s' % current_time, help="name of this experiment")
     parser.add_argument('--phase', type=str, default='train', help="'train' or 'test'")
@@ -55,7 +69,7 @@ def get_opt():
     parser.add_argument('--tf_log', action='store_true', help='if specified, use tensorboard logging. Requires tensorflow installed')
 
     # for training
-    parser.add_argument('--niter', type=int, default=100, help='# of iter at starting learning rate. This is NOT the total #epochs. Totla #epochs is niter + niter_decay')
+    parser.add_argument('--niter', type=int, default=200, help='# of iter at starting learning rate. This is NOT the total #epochs. Totla #epochs is niter + niter_decay')
     parser.add_argument('--niter_decay', type=int, default=0, help='# of iter to linearly decay learning rate to zero')
     parser.add_argument('--beta1', type=float, default=0.5, help='momentum term of adam')
     parser.add_argument('--beta2', type=float, default=0.999, help='momentum term of adam')
@@ -94,7 +108,7 @@ opt = get_opt()
 opt.dataroot = os.path.join('data', opt.dataset)
 opt.total_epochs = opt.niter + opt.niter_decay
 
-# logs and checkpoing
+# logs and checkpoint
 if not os.path.exists('logs'):
     os.mkdir('logs')
 
@@ -110,6 +124,7 @@ util.mkdir(ckpt_dir)
 
 dataset = CityscapesDataset()
 dataset.initialize(opt)
+print(dataset)
 dataloader = DataLoader(dataset,
             batch_size=opt.batch_size,
             shuffle=not opt.serial_batches,
@@ -162,15 +177,35 @@ for epoch in range(opt.total_epochs):
  
 
         if current_step % 50 == 0:
-            real_img, corruped_img, generated_seg, generated_img = \
+            real_img, corruped_img, generated_seg, generated_img, result_img, first_out ,first_out_img = \
                 trainer.get_latest_results()
+
             visuals = OrderedDict([('input_label', data_i['label']),
                                    ('synthesized_image', generated_img),
                                    ('synthesized_segmentation', generated_seg),
                                    ('real_image', real_img),                                  
-                                   ('corruped_image', corruped_img)],
+                                   ('corruped_image', corruped_img),
+                                   ('resullt_img', result_img),
+                                   ('first_out',first_out),
+                                   ('first_ont_result',first_out_img)],
                                    )
             visualizer.display_current_results(visuals, epoch, current_step)
+            ''' image_data= generated_img.squeeze().cpu().detach().numpy()
+            print(image_data)
+
+            # 对每个图像进行处理
+            for i in range(image_data.shape[0]):
+                # 将形状从[3, 256, 256]转换为[256, 256, 3]
+                lo, hi = [-1, 1]
+                pred_img = np.asarray(image_data[0], dtype=np.float32).transpose(1, 2, 0)
+                pred_img = (pred_img - lo) * (255 / (hi - lo))
+                pred_img = np.rint(pred_img).clip(0, 255).astype(np.uint8)
+                print('fffffffffffffffff',pred_img)
+
+                # 显示图像
+                plt.imshow(pred_img)
+                plt.axis('off')
+                plt.show()'''
 
         if opt.test:
             break

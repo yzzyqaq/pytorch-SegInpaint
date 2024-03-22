@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from models.networks.architecture import VGG19
 
+
+
 # Defines the GAN loss which uses either LSGAN or the regular GAN.
 # When LSGAN is used, it is basically same as MSELoss,
 # but it abstracts away the need to create the target label tensor
