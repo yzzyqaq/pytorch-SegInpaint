@@ -168,6 +168,7 @@ class testInpaintModel(torch.nn.Module):
     def compute_sgn_loss(self, fake_seg, real_image, corrupted_img, occ_mask):
         # Generator - SGNet
         G_SGNet_losses = {}
+        G_SGNet_losses_first = {}
         occ_mask = occ_mask.detach()
         occ_mask.requires_grad_()
         # for GAN feature matching loss
@@ -180,6 +181,10 @@ class testInpaintModel(torch.nn.Module):
         firstout, fake_image = self.SGNet(input_sgn,occ_mask,real_image) # generated fake_image
 
         pred_fake_img = self.D_img(fake_image)
+        pred_first_img = self.D_img(fake_image)
+        G_SGNet_losses['GAN_1'] = self.criterion_GAN(pred_first_img, target_is_real=True, for_discriminator=False)
+        G_SGNet_losses['GAN_Feat_1'] = self.criterion_Feat(pred_first_img, pred_real_img)
+        G_SGNet_losses['VGG_1'] = self.criterion_VGG(real_image, firstout)*self.opt.lambda_feat # or alex
         G_SGNet_losses['GAN'] = self.criterion_GAN(pred_fake_img, target_is_real=True, for_discriminator=False)
         G_SGNet_losses['GAN_Feat'] = self.criterion_Feat(pred_fake_img, pred_real_img)
         G_SGNet_losses['hrfpl'] = self.run_hrfpl(fake_image,real_image)
