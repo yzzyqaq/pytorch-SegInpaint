@@ -191,6 +191,7 @@ class SegInpaintModel(torch.nn.Module):
         #fake_seg = output_semantics
         G_SPNet_losses['GAN'] = self.criterion_GAN(pred_fake_seg, target_is_real=True, for_discriminator=False)
         G_SPNet_losses['GAN_Feat'] = self.criterion_Feat(pred_fake_seg, pred_real_seg) # or perceptual loss
+        #G_SPNet_losses['hrfpl'] = self.run_hrfpl(fake_seg,input_semantics)
         #G_SPNet_losses['GAN_Feat'] = 0*self.criterion_Feat(pred_fake_seg, pred_real_seg)
         return G_SPNet_losses, fake_seg
         #return G_SPNet_losses, real_seg
@@ -216,6 +217,7 @@ class SegInpaintModel(torch.nn.Module):
         G_SGNet_losses['GAN_1'] = self.criterion_GAN(pred_first_img, target_is_real=True, for_discriminator=False)
         G_SGNet_losses['GAN_Feat_1'] = self.criterion_Feat(pred_first_img, pred_real_img)
         G_SGNet_losses['VGG_1'] = self.criterion_VGG(real_image, firstout)*self.opt.lambda_feat # or alex
+
         G_SGNet_losses['GAN'] = self.criterion_GAN(pred_fake_img, target_is_real=True, for_discriminator=False)
         G_SGNet_losses['GAN_Feat'] = self.criterion_Feat(pred_fake_img, pred_real_img)
         G_SGNet_losses['hrfpl'] = self.run_hrfpl(fake_image,real_image)
