@@ -81,7 +81,7 @@ class testInpaintModel(torch.nn.Module):
                 return sgn_loss, generated_img, occ_mask, first_out
             elif mode == 'd_seg':
                 d_seg_loss = self.compute_d_seg_loss(input_semantics, corrupted_img, corrupted_seg)
-                return d_seg_loss
+                return d_seg_loss, corrupted_seg
             elif mode == 'd_img':
                 d_img_loss = self.compute_d_img_loss(real_image, fake_seg, corrupted_img, occ_mask)
                 #return d_img_loss
@@ -133,9 +133,10 @@ class testInpaintModel(torch.nn.Module):
         input_semantics = input_label.scatter_(1, label_map, 1.0)
         #print(input_semantics.shape)
 
-        corrupted_seg = occ_mask*input_semantics # NOTE haven't checked yet
+        corrupted_seg = occ_mask * input_semantics # NOTE haven't checked yet
         corrupted_img = occ_mask * image
         #corrupted_realseg = occ_mask * realseg
+        corrupted_seg = self.normalize(corrupted_seg)
 
         # normalize
         image = self.normalize(image)

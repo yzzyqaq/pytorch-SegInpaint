@@ -127,7 +127,7 @@ class Visualizer():
         for key, t in visuals.items():
             #tile = self.opt.batchSize > 8
             tile = self.opt.batch_size > 8
-            if 'input_label' == key or 'synthesized_segmentation' == key:
+            if 'input_label' == key or 'synthesized_segmentation' == key or 'corrupted_seg' == key:
                 t = util.tensor2label(t, self.opt.label_nc + 2, tile=tile)
             else:
                 t = util.tensor2im(t, tile=tile)

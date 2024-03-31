@@ -25,13 +25,12 @@ class Pix2pixDataset(BaseDataset):
         self.opt = opt
         self.mask = opt.mask
 
-        label_paths, image_paths, instance_paths, mask_paths, color_paths, realseg_paths = self.get_paths(opt)
+        label_paths, image_paths, instance_paths, mask_paths, color_paths = self.get_paths(opt)
         
         util.natural_sort(label_paths)
         util.natural_sort(color_paths)
         util.natural_sort(image_paths)
         util.natural_sort(mask_paths) # MASK
-        util.natural_sort(realseg_paths)
         if not opt.no_instance:
             util.natural_sort(instance_paths)
 
@@ -39,12 +38,12 @@ class Pix2pixDataset(BaseDataset):
         color_paths = color_paths[:opt.max_dataset_size]
         image_paths = image_paths[:opt.max_dataset_size]
         instance_paths = instance_paths[:opt.max_dataset_size]
-        realseg_paths = realseg_paths[:opt.max_dataset_size]
         #mask_paths = mask_paths[:] will get random mask from there.
 
 
         if not opt.no_pairing_check:
             for path1, path2 in zip(label_paths, image_paths):
+                #print(path1,path2)
                 assert self.paths_match(path1, path2), \
                     "The label-image pair (%s, %s) do not look like the right pair because the filenames are quite different. Are you sure about the pairing? Please see data/pix2pix_dataset.py to see what is going on, and use --no_pairing_check to bypass this." % (path1, path2)
 
@@ -59,7 +58,6 @@ class Pix2pixDataset(BaseDataset):
         self.image_paths = image_paths
         self.instance_paths = instance_paths
         self.mask_paths = mask_paths # MASK
-        self.realseg_paths = realseg_paths
 
         size = len(self.label_paths)
         self.dataset_size = size
@@ -70,7 +68,6 @@ class Pix2pixDataset(BaseDataset):
         image_paths = []
         instance_paths = []
         mask_paths=[]
-        realseg_paths=[]
         assert False, "A subclass of Pix2pixDataset must override self.get_paths(self, opt)"
         return label_paths, image_paths, instance_paths, mask_paths, color_paths, real_seg_paths
 

@@ -7,33 +7,47 @@ import sys
 from collections import OrderedDict
 from datetime import datetime
 from tqdm import tqdm
-
+import numpy as np
+import cv2
+import torch
+import torch.nn.functional as F
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
+import matplotlib.pyplot as plt
 
 import dataset
 import util.util as util
-from dataset.cityscapes_dataset import CityscapesDataset
+from dataset.celeba_dataset import CelebaDataset
 from util.visualizer import Visualizer
-from trainers.test_inpaint_trainer import testInpaintTrainer
-from models.test_model import testInpaintModel
+from trainers.seg_inpaint_trainer import SegInpaintTrainer
 
+current_time = datetime.now().strftime("%m%d-%H%M")
 
 def get_opt():
     parser = argparse.ArgumentParser()
+    image_size = 256
+    parser.add_argument('--img_size', default=image_size,type=int, help='size of image')
+    parser.add_argument('--crop_size', default=image_size, type=int, help='size of image')
+    parser.add_argument('--img_shape',default=(image_size,image_size,3),type=int,help='size of image')
+    parser.add_argument('--height',default=128,type=int,help='height of random bbox')
+    parser.add_argument('--width',default=128,type=int,help='width of random bbox')
+    parser.add_argument('--max_delta_height',default=32,type=int,help='')
+    parser.add_argument('--max_delta_width',default=32,type=int,help='')
+    parser.add_argument('--vertical_margin',default=0,type=int,help='')
+    parser.add_argument('--horizontal_margin',default=0,type=int,help='')
     ### base options ###
-    parser.add_argument('--name', type=str, default='human_remove' )
+    parser.add_argument('--name', type=str, default='exp1-%s' % current_time, help="name of this experiment")
     parser.add_argument('--phase', type=str, default='train', help="'train' or 'test'")
     parser.add_argument('--gpu_ids', type=str, default='0,2', help="0,1,2 corresponds to GPU 2,0,1 (weird)")
     parser.add_argument('--norm_D', type=str, default='spectralinstance', help='instance normalization or batch normalization')
 
     # input/output sizes
-    parser.add_argument('--batch_size', type=int, default=1, help='input batch size')
+    parser.add_argument('--batch_size', type=int, default=4, help='input batch size')
     parser.add_argument('--contain_dontcare_label', action='store_true', help='if the label map contains dontcare label (dontcare=255)')
 
     # for setting input
-    parser.add_argument('--dataset', type=str, default='cityscapes') # dataroot will be at: 'server'_data/cityscapes
+    parser.add_argument('--dataset', type=str, default='CelebAMask-HQ') # dataroot will be at: 'server'_data/cityscapes
     parser.add_argument('--max_dataset_size', type=int, default=sys.maxsize, help='Maximum number of samples allowed per dataset. If the dataset directory contains more than max_dataset_size, only a subset is loaded.')
     parser.add_argument('--no_flip', action='store_true', help='if specified, do not flip the images for data argumentation')
     parser.add_argument('--serial_batches', action='store_true', help='if true, takes images in order to make batches, otherwise takes them randomly')
@@ -55,8 +69,8 @@ def get_opt():
     parser.add_argument('--tf_log', action='store_true', help='if specified, use tensorboard logging. Requires tensorflow installed')
 
     # for training
-    parser.add_argument('--niter', type=int, default=150, help='# of iter at starting learning rate. This is NOT the total #epochs. Totla #epochs is niter + niter_decay')
-    parser.add_argument('--niter_decay', type=int, default=50, help='# of iter to linearly decay learning rate to zero')
+    parser.add_argument('--niter', type=int, default=200, help='# of iter at starting learning rate. This is NOT the total #epochs. Totla #epochs is niter + niter_decay')
+    parser.add_argument('--niter_decay', type=int, default=0, help='# of iter to linearly decay learning rate to zero')
     parser.add_argument('--beta1', type=float, default=0.5, help='momentum term of adam')
     parser.add_argument('--beta2', type=float, default=0.999, help='momentum term of adam')
     parser.add_argument('--lr', type=float, default=0.0002, help='initial learning rate for adam')
@@ -70,11 +84,6 @@ def get_opt():
     parser.add_argument('--no_ganFeat_loss', action='store_true', help='if specified, do *not* use discriminator feature matching loss')
     parser.add_argument('--no_TTUR', action='store_true', help='Use TTUR training scheme')
     parser.add_argument('--netD_subarch', type=str, default='n_layer', help='architecture of each discriminator')
-
-    # for test
-    parser.add_argument('--whichepoch', type=int, default=150, help='which epoch used to test')
-    parser.add_argument('--test_model_path', type=str, default='E:\gan\spgnet\pytorch-SegInpaint\logs\models\model_150.pth', help='which model used to test')
-    #parser.add_argument('--test_model_path', type=str, default='logs\seg_inpaint_logs\exp1-0308-1413\checkpoint\model_195.pth', help='which model used to test')
     #####################
 
     parser.add_argument('--test', action='store_true')
@@ -91,16 +100,19 @@ def get_opt():
 
     return opt
 
+with open('latest_cmd.txt', 'w') as f:
+    cmd = ' '.join(sys.argv) + '\n'
+    f.write(cmd)
 
 opt = get_opt()
-opt.dataroot = os.path.join('test', opt.dataset)
-
+opt.dataroot = os.path.join('E://gan//spgnet//pytorch-SegInpaint//data//celeba//CelebAMask-HQ//face_parsing//Data_preprocessing', opt.dataset)
+opt.total_epochs = opt.niter + opt.niter_decay
 
 # logs and checkpoint
 if not os.path.exists('logs'):
     os.mkdir('logs')
 
-log_root = os.path.join('logs', 'test_inpaint_logs')
+log_root = os.path.join('logs', 'seg_inpaint_logs')
 if not os.path.exists(log_root):
     os.mkdir(log_root)
 
@@ -110,13 +122,15 @@ util.mkdir(exp_dir)
 ckpt_dir = os.path.join(log_root, opt.name, 'checkpoint')
 util.mkdir(ckpt_dir)
 
-dataset = CityscapesDataset()
+dataset = CelebaDataset()
 dataset.initialize(opt)
+print(dataset)
 dataloader = DataLoader(dataset,
             batch_size=opt.batch_size,
             shuffle=not opt.serial_batches,
             num_workers=int(opt.nThreads),
             drop_last=opt.isTrain)
+
 # setup GPU, optimizer.
 # borrow from SPADE
 str_ids = opt.gpu_ids.split(',')
@@ -132,42 +146,37 @@ assert len(opt.gpu_ids) == 0 or opt.batch_size % len(opt.gpu_ids) == 0, \
     "Batch size %d is wrong. It must be a multiple of # GPUs %d." \
     % (opt.batch_size, len(opt.gpu_ids))
 
-trainer = testInpaintTrainer(opt)
+trainer = SegInpaintTrainer(opt)
 
 # create tool for visualization
 visualizer = Visualizer(opt)
 
 total_steps_so_far = 0
 
-print(len(dataloader))
-for i, data_i in tqdm(enumerate(dataloader), total=len(dataloader)):
-        current_step = len(dataloader) + i
+for epoch in range(opt.total_epochs):
 
-        # test
+    for i, data_i in tqdm(enumerate(dataloader), total=len(dataloader)):
+        current_step = epoch*len(dataloader) + i
+
+        # Training
         if not opt.test or i == 0:
             trainer.run_generator_one_step(data_i)
             trainer.run_discriminator_one_step(data_i)
-            real_img, corruped_img, generated_seg, generated_img, result_img, first_out ,first_out_img, corruped_seg = \
-                trainer.get_latest_results()
-      
-            '''data_i['label'] = data_i['label'].cuda()
-            corruped_seg =  data_i['label']*(occ_mask)
-            print(generated_seg.shape)'''
-
-
-            visuals = OrderedDict([('input_label', data_i['label']),
-                                   ('synthesized_image', generated_img),
-                                   ('corrupted_seg', corruped_seg),
-                                   ('synthesized_segmentation', generated_seg),
-                                   ('real_image',real_img),                                  
-                                   ('corruped_image', corruped_img),
-                                   ('resullt_img', result_img),
-                                   ('first_out',first_out),
-                                   ('first_ont_result',first_out_img)],
-                                   )
-            visualizer.display_current_results(visuals, 1, current_step)
         else:
             pass
+
+        if current_step % 10 == 0:
+            if i != 0:
+                sys.stdout.write("\033[F") # back to previous line
+                sys.stdout.write("\033[K") # clear line
+
+            loss_str = trainer.get_loss_str()
+            print("[%d/%d] %d %s" % (epoch, opt.total_epochs, current_step, loss_str))
+            with open(visualizer.log_name, "a") as log_file:
+                log_file.write('%s\n' % loss_str)
+ 
+
+        if current_step % 50 == 0:
             real_img, corruped_img, generated_seg, generated_img, result_img, first_out ,first_out_img = \
                 trainer.get_latest_results()
 
@@ -180,8 +189,30 @@ for i, data_i in tqdm(enumerate(dataloader), total=len(dataloader)):
                                    ('first_out',first_out),
                                    ('first_ont_result',first_out_img)],
                                    )
-            visualizer.display_current_results(visuals, 1, current_step)
+            visualizer.display_current_results(visuals, epoch, current_step)
+            ''' image_data= generated_img.squeeze().cpu().detach().numpy()
+            print(image_data)
 
+            # 对每个图像进行处理
+            for i in range(image_data.shape[0]):
+                # 将形状从[3, 256, 256]转换为[256, 256, 3]
+                lo, hi = [-1, 1]
+                pred_img = np.asarray(image_data[0], dtype=np.float32).transpose(1, 2, 0)
+                pred_img = (pred_img - lo) * (255 / (hi - lo))
+                pred_img = np.rint(pred_img).clip(0, 255).astype(np.uint8)
+                print('fffffffffffffffff',pred_img)
 
+                # 显示图像
+                plt.imshow(pred_img)
+                plt.axis('off')
+                plt.show()'''
 
-print('Test complete.')
+        if opt.test:
+            break
+
+    trainer.update_learning_rate(epoch)
+
+    model_path = os.path.join(ckpt_dir, 'model_%d.pth' % epoch)
+    trainer.save(model_path, epoch)
+
+print('Training complete.')

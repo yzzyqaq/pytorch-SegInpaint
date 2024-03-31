@@ -103,7 +103,26 @@ def convert_label(path):
         return  label_image
 
 
+
+import os
+import shutil
+
+def convert_jpg_to_png(folder_path):
+    for subdir, dirs, files in os.walk(folder_path):
+        for file in files:
+            if file.endswith('.jpg'):
+                jpg_path = os.path.join(subdir, file)
+                png_path = os.path.splitext(jpg_path)[0] + '.png'
+                shutil.move(jpg_path, png_path)
+
+# 示例用法
+folder_path = 'path_to_your_folder'
+convert_jpg_to_png(folder_path)
+
+
 if __name__ == "__main__":
-     input_path = 'visualizations/images/aachen_000173_000019_gtFine_color.png'
+    folder_path = 'E:/gan/spgnet/pytorch-SegInpaint/data\celeba\CelebAMask-HQ/face_parsing\Data_preprocessing\CelebAMask-HQ\CelebA-HQ-img'
+    convert_jpg_to_png(folder_path)
+    '''input_path = 'visualizations/images/aachen_000173_000019_gtFine_color.png'
      label_semantic_segmentation = convert_label(input_path)
-     cv2.imwrite('test/cityscapes/gtFine/train/aachen_000173_000019_gtFine_labelIds.png', label_semantic_segmentation)
+     cv2.imwrite('test/cityscapes/gtFine/train/aachen_000173_000019_gtFine_labelIds.png', label_semantic_segmentation)'''

@@ -50,6 +50,7 @@ class testInpaintTrainer():
         self.optimizer_SGNet.step()
         result_img = generated_img * (1 - occ_mask) + real_img * occ_mask
         first_result_img = firstout * (1 - occ_mask) + real_img * occ_mask
+        self.occ_mask = occ_mask
         self.result_img = result_img  
         self.first_out = firstout
         self.first_out_result = first_result_img
@@ -77,7 +78,7 @@ class testInpaintTrainer():
     def run_discriminator_one_step(self, data):
         # first D_seg
         self.optimizer_D_seg.zero_grad()
-        d_seg_losses = self.seg_inpaint_model(data, mode='d_seg')
+        d_seg_losses,corruped_seg  = self.seg_inpaint_model(data, mode='d_seg')
         #d_seg_loss = sum(d_seg_losses.values()).mean()
         #d_seg_loss.backward()
         d_img_loss = 0
@@ -95,9 +96,10 @@ class testInpaintTrainer():
         # NOTE: for display current results
         self.real_img = real_img
         self.corruped_img = corruped_img
+        self.corruped_seg = corruped_seg
 
     def get_latest_results(self):
-        return self.real_img, self.corruped_img, self.generated_seg, self.generated_img, self.result_img, self.first_out, self.first_out_result
+        return self.real_img, self.corruped_img, self.generated_seg, self.generated_img, self.result_img, self.first_out, self.first_out_result, self.corruped_seg
     
     def get_results(self):
         return self.real_img, self.corruped_img, self.generated_seg, self.generated_img

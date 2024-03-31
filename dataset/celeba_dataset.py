@@ -2,7 +2,7 @@ import os.path
 from dataset.pix2pix_dataset import Pix2pixDataset
 from dataset.image_folder import make_dataset
 
-class CityscapesDataset(Pix2pixDataset):
+class CelebaDataset(Pix2pixDataset):
 
     @staticmethod
     def modify_commandline_options(parser, is_train):
@@ -22,20 +22,20 @@ class CityscapesDataset(Pix2pixDataset):
         root = opt.dataroot
         phase = 'val' if opt.phase == 'test' else 'train'
 
-        label_dir = os.path.join(root, 'gtFine_f', phase)
+        label_dir = os.path.join(root, 'CelebAMaskHQ-mask-3000', phase)
         label_paths_all = make_dataset(label_dir, recursive=True)
-        label_paths = [p for p in label_paths_all if p.endswith('_labelIds.png')]
+        label_paths = [p for p in label_paths_all]
 
-        color_dir = os.path.join(root, 'color_f', phase)
+        color_dir = os.path.join(root, 'CelebAMaskHQ-mask-3000', phase)
         color_paths_all = make_dataset(color_dir, recursive=True)
-        color_paths = [p for p in color_paths_all if p.endswith('_color_gray.png')]
+        color_paths = [p for p in color_paths_all]
 
-        image_dir = os.path.join(root, 'leftImg8bit2_f', phase)
+        image_dir = os.path.join(root, 'CelebA-HQ-img-3000', phase)
         image_paths = make_dataset(image_dir, recursive=True)
 
-        realseg_dir = os.path.join(root, 'seg_pre', phase)
+        '''realseg_dir = os.path.join(root, 'seg_pre', phase)
         realseg_paths_all = make_dataset(image_dir, recursive=True)
-        realseg_paths = [p for p in color_paths_all if p.endswith('_color.png')]
+        realseg_paths = [p for p in color_paths_all if p.endswith('_color.png')]'''
 
         if not opt.no_instance:
             instance_paths = [p for p in label_paths_all if p.endswith('_instanceIds.png')]
@@ -43,7 +43,7 @@ class CityscapesDataset(Pix2pixDataset):
             instance_paths = []
 
         # load mask
-        mask_dir = os.path.join(root, 'irregular_mask')
+        mask_dir = os.path.join('E:\gan\spgnet\pytorch-SegInpaint\data\cityscapes', 'irregular_mask')
         mask_paths_all = make_dataset(mask_dir, recursive=True)
         mask_paths = [p for p in mask_paths_all if p.endswith('_mask.png')]
 

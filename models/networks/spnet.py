@@ -6,7 +6,7 @@ except:
     from architecture import ResnetBlock
 import torch.nn.functional as F
 
-
+from models.networks.network_module import *
 
 class Gate(nn.Module):
     def __init__(self,in_ch,out_ch,ksize=3,stride=1,padding=1,activation=nn.ELU()):
@@ -89,17 +89,42 @@ class SPNet(nn.Module):
             nn.Tanh()
         )
         
+
+        self.refine = nn.Sequential(# encoder
+            GatedCon2d(36, 48, 7, 1, 3, pad_type = 'zero', activation = 'lrelu', norm = 'none'),
+            GatedCon2d(48, 48 * 2, 4, 2, 1, pad_type = 'zero', activation = 'lrelu', norm = 'in'),
+            GatedCon2d(48 * 2, 48 * 4, 3, 1, 1, pad_type = 'zero', activation = 'lrelu', norm = 'in'),
+            GatedCon2d(48 * 4, 48 * 4, 4, 2, 1, pad_type = 'zero', activation = 'lrelu', norm = 'in'),
+            # Bottleneck
+            GatedCon2d(48 * 4, 48 * 4, 3, 1, 1, pad_type = 'zero', activation = 'lrelu', norm = 'in'),
+            GatedCon2d(48 * 4, 48 * 4, 3, 1, 1, pad_type = 'zero', activation = 'lrelu', norm = 'in'),
+            GatedCon2d(48 * 4, 48 * 4, 3, 1, 2, dilation = 2, pad_type = 'zero', activation = 'lrelu', norm = 'in'),
+            GatedCon2d(48 * 4, 48 * 4, 3, 1, 4, dilation = 4, pad_type = 'zero', activation = 'lrelu', norm = 'in'),
+            GatedCon2d(48 * 4, 48 * 4, 3, 1, 8, dilation = 8, pad_type = 'zero', activation = 'lrelu', norm = 'in'),
+            GatedCon2d(48 * 4, 48 * 4, 3, 1, 16, dilation = 16, pad_type = 'zero', activation = 'lrelu', norm = 'in'),
+            GatedCon2d(48 * 4, 48 * 4, 3, 1, 1, pad_type = 'zero', activation = 'lrelu', norm = 'in'),
+            GatedCon2d(48 * 4, 48 * 4, 3, 1, 1, pad_type = 'zero', activation = 'lrelu', norm = 'in'),
+            # decoder
+            TransposeGatedCon2d(48 * 4, 48 * 2, 3, 1, 1, pad_type = 'zero', activation = 'lrelu', norm = 'in'),
+            GatedCon2d(48 * 2, 48 * 2, 3, 1, 1, pad_type = 'zero', activation = 'lrelu', norm = 'in'),
+            TransposeGatedCon2d(48 * 2, 48, 3, 1, 1, pad_type = 'zero', activation = 'lrelu', norm = 'in'),
+            GatedCon2d(48, self.n_class, 7, 1, 3, pad_type = 'zero', activation = 'tanh', norm = 'none')
+
+        )
+        
     def forward(self, x,mask, seg):
         x = self.down(x)
         x = self.bottle_neck(x)
         x = self.up(x)
         out = self.out(x)
         seg_out = seg * mask +out *1-mask
-        
-        return  seg_out # shape:
+        second_in = torch.cat((seg_out, mask), 1)     # in: [B, 4, H, W]
+        second_out = self.refine(second_in) 
+        return  second_out # shape:
 
     def generate_fake(self, x):
         return self(x)
+
 
 
 if __name__ == '__main__':
