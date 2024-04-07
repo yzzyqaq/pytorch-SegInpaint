@@ -43,9 +43,9 @@ class CityscapesDataset(Pix2pixDataset):
             instance_paths = []
 
         # load mask
-        mask_dir = os.path.join(root, 'irregular_mask')
+        mask_dir = os.path.join(root, 'test_mask/mask/testing_mask_dataset')
         mask_paths_all = make_dataset(mask_dir, recursive=True)
-        mask_paths = [p for p in mask_paths_all if p.endswith('_mask.png')]
+        mask_paths = [p for p in mask_paths_all if p.endswith('.png')]
 
         return label_paths, image_paths, instance_paths, mask_paths, color_paths 
 

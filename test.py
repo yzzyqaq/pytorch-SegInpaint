@@ -73,7 +73,7 @@ def get_opt():
 
     # for test
     parser.add_argument('--whichepoch', type=int, default=150, help='which epoch used to test')
-    parser.add_argument('--test_model_path', type=str, default='E:\gan\spgnet\pytorch-SegInpaint\logs\models\model_150.pth', help='which model used to test')
+    parser.add_argument('--test_model_path', type=str, default='E:\gan\spgnet\pytorch-SegInpaint\logs\models_fake_city_re\model_400.pth', help='which model used to test')
     #parser.add_argument('--test_model_path', type=str, default='logs\seg_inpaint_logs\exp1-0308-1413\checkpoint\model_195.pth', help='which model used to test')
     #####################
 

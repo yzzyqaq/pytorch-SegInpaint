@@ -119,7 +119,8 @@ class SPNet(nn.Module):
         out = self.out(x)
         seg_out = seg * mask +out *1-mask
         second_in = torch.cat((seg_out, mask), 1)     # in: [B, 4, H, W]
-        second_out = self.refine(second_in) 
+        second = self.refine(second_in) 
+        second_out = seg * mask +second *1-mask
         return  second_out # shape:
 
     def generate_fake(self, x):

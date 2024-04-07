@@ -1,1 +1,1 @@
-main_celeba.py --gpu_ids 0 --no_instance --no_flip
+main.py --gpu_ids 0 --no_instance --no_flip
