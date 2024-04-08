@@ -134,7 +134,7 @@ class SegInpaintModel(torch.nn.Module):
            # data['realseg'] = data['realseg'].cuda()
 
         image = data['image']
-        occ_mask = 1-data['mask']
+        occ_mask = data['mask']
         #label_map = data['label']
         color_map = data['color']
         #realseg = data['realseg']
